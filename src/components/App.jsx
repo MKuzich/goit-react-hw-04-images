@@ -32,7 +32,7 @@ export const App = () => {
       )
       .catch(console.log)
       .finally(setIsLoading(false));
-  }, [request, page]);
+  }, [request, page, isFirstMount]);
 
   const onClickShowModal = (url, name) => {
     setShowModal({ url, name });
