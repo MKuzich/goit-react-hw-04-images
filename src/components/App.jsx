@@ -1,4 +1,4 @@
-import React, { PureComponent } from 'react';
+import { useState, useEffect } from 'react';
 import { GlobalStyle } from './GlobalStyle';
 import { ImageGallery } from 'components/ImageGallery/ImageGallery';
 import { Searchbar } from 'components/Searchbar/Searchbar';
@@ -9,80 +9,77 @@ import { Modal } from 'components/Modal/Modal';
 import { getPictures } from 'services/api';
 import { Wrapper } from './App.styled';
 
-export class App extends PureComponent {
-  state = {
-    page: 1,
-    request: null,
-    response: [],
-    isLoading: false,
-    showModal: null,
-  };
+export const App = () => {
+  const [page, setPage] = useState(1);
+  const [request, setRequest] = useState(null);
+  const [response, setResponse] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(null);
+  const [isFirstMount, setIsFirstMount] = useState(true);
 
-  async componentDidUpdate(_, prevState) {
-    const { request, page } = this.state;
-    if (prevState.request !== request || prevState.page !== page) {
-      this.setState({ isLoading: true });
-      const receivedPictures = await getPictures(request, page);
-      this.setState(prevState => {
-        return { response: [...prevState.response, ...receivedPictures] };
-      });
-      this.setState({ isLoading: false });
+  useEffect(() => {
+    if (isFirstMount) {
+      setIsFirstMount(false);
+      return;
     }
-  }
 
-  onClickShowModal = (url, name) => {
-    this.setState({ showModal: { url, name } });
+    setIsLoading(true);
+    getPictures(request, page)
+      .then(r =>
+        setResponse(prevState => {
+          return [...prevState, ...r];
+        })
+      )
+      .catch(console.log)
+      .finally(setIsLoading(false));
+  }, [request, page]);
+
+  const onClickShowModal = (url, name) => {
+    setShowModal({ url, name });
   };
 
-  onClickCloseModal = () => {
-    this.setState({ showModal: null });
+  const increasePage = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  increasePage = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
-    });
-  };
-
-  onSubmit = request => {
-    if (this.state.request !== request) {
-      this.setState({ response: [], request });
+  const onSubmit = query => {
+    if (request !== query) {
+      setResponse([]);
+      setRequest(query);
+      return;
     }
-    this.setState({ request });
+    setRequest(query);
+    increasePage();
   };
 
-  render() {
-    const { response, isLoading, showModal } = this.state;
+  return (
+    <Wrapper>
+      <GlobalStyle />
+      <Searchbar onSubmit={onSubmit} />
+      <ImageGallery>
+        {response &&
+          response.map(({ id, webformatURL, tags, largeImageURL }) => {
+            return (
+              <ImageGalleryItem
+                onClickShowModal={onClickShowModal}
+                key={id}
+                originalUrl={largeImageURL}
+                url={webformatURL}
+                name={tags}
+              />
+            );
+          })}
+      </ImageGallery>
+      {isLoading && <Loader />}
+      {response.length > 0 && <Button loadMore={increasePage} />}
 
-    return (
-      <Wrapper>
-        <GlobalStyle />
-        <Searchbar onSubmit={this.onSubmit} />
-        <ImageGallery>
-          {response &&
-            response.map(({ id, webformatURL, tags, largeImageURL }) => {
-              return (
-                <ImageGalleryItem
-                  onClickShowModal={this.onClickShowModal}
-                  key={id}
-                  originalUrl={largeImageURL}
-                  url={webformatURL}
-                  name={tags}
-                />
-              );
-            })}
-        </ImageGallery>
-        {isLoading && <Loader />}
-        {response.length > 0 && <Button loadMore={this.increasePage} />}
-
-        {showModal && (
-          <Modal
-            closeModal={this.onClickCloseModal}
-            url={showModal.url}
-            name={showModal.name}
-          />
-        )}
-      </Wrapper>
-    );
-  }
-}
+      {showModal && (
+        <Modal
+          closeModal={() => setShowModal(null)}
+          url={showModal.url}
+          name={showModal.name}
+        />
+      )}
+    </Wrapper>
+  );
+};
